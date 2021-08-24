@@ -1,6 +1,12 @@
 QMainWindow {
 	background-color:#1e1d23;
 }
+QGroupBox {
+    background-color: #1e1d23;
+    border: 0px solid gray;
+    border-radius: 5px;
+    margin-top: 1ex; /* leave space at the top for the title */
+}
 QDialog {
 	background-color:#1e1d23;
 }
