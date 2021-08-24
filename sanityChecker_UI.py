@@ -37,7 +37,6 @@ class Highlighter(QtGui.QSyntaxHighlighter):
 
     def highlightBlock(self, text):
         # uncomment this line for Python2
-        # text = unicode(text)
         if text.endswith('SUCCESS'):
             self.setFormat(0, len(text), self.successFormat)
         elif text.endswith('FAILED') or text.startswith('ERROR'):
@@ -71,13 +70,24 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
         self.setWindowTitle("Sanity Checker")
         mainLayout = QtWidgets.QWidget(self)
         self.setCentralWidget(mainLayout)
-        self.setStyleSheet(open("%s/style.qss" % __location__, "r").read())
+        self.setStyleSheet(open("%s/style.qss" % __location__, "r").read())                 
              
         # Adding a Vertical layout to add column and run button
         rows = QtWidgets.QVBoxLayout(mainLayout)
+             
         # Adding a Horizontal layout to divide the UI in two columns
         columns = QtWidgets.QHBoxLayout()
-        rows.addLayout(columns)
+
+        groupBox = QtWidgets.QGroupBox()
+        groupBox.setLayout(columns)
+        
+        # Adding scroll area
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidget(groupBox)
+        scroll.setWidgetResizable(True)
+        
+        rows.addWidget(scroll)
+        
         # Creating 2 vertical layout for the sanity checks and one for the report
         self.report = QtWidgets.QVBoxLayout()
         self.checks = QtWidgets.QVBoxLayout()
@@ -123,7 +133,7 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
         self.reportBoxLayout.addWidget(self.clearButton)
 
         # Adding the stretch element to the checks UI to get everything at the top
-        self.resize(300, 300)
+        self.resize(600, 500)
         self.list = [
             'triangles_topology_0_0',
             'ngons_topology_0_0',
@@ -368,12 +378,12 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
         nodes = []
         self.SLMesh.clear()
         allUsuableNodes = []
-        allNodes = cmds.ls(transforms=True)
+        allNodes = cmds.ls(transforms=True, l=True)
         for obj in allNodes:
             if not obj in {'front', 'persp', 'top', 'side'}:
                 allUsuableNodes.append(obj)
 
-        selection = cmds.ls(sl=True)
+        selection = cmds.ls(sl=True, l=True)
         topNode = self.selectedTopNode_UI.text()
         if len(selection) > 0:
             nodes = selection
@@ -382,7 +392,7 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
         else:
             if cmds.objExists(topNode):
                 nodes = cmds.listRelatives(
-                    topNode, allDescendents=True, typ="transform")
+                    topNode, allDescendents=True, typ="transform", fullPath=True)
                 if not nodes:
                     nodes = topNode
                 nodes.append(topNode)
@@ -391,7 +401,7 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
                 self.reportOutputUI.clear()
                 self.reportOutputUI.insertPlainText(response)
         for node in nodes:
-            shapes = cmds.listRelatives(node, shapes=True, typ="mesh")
+            shapes = cmds.listRelatives(node, shapes=True, typ="mesh", fullPath=True)
             if shapes:
                 self.SLMesh.add(node)
         return nodes
