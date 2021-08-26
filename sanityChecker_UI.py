@@ -133,7 +133,7 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
         self.reportBoxLayout.addWidget(self.clearButton)
 
         # Adding the stretch element to the checks UI to get everything at the top
-        self.resize(600, 500)
+        self.resize(600, 750)
         self.list = [
             'triangles_topology_0_0',
             'ngons_topology_0_0',
@@ -152,12 +152,11 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
             'normals_model_0_1',
             'unfrozenTransforms_model_0_1',
             'attributes_model_0_1',
-            'smoothMesh_model_0_1',
             'intermediateObjects_model_0_0',
             'vcolor_model_0_1',
             'multipleShapes_model_0_1', 
             'negativeScale_model_0_1',
-            'hierarchy_model_0_0',
+            'modelHierarchy_model_0_0',
             'shaders_model_0_1',
             'history_model_0_1',
 
@@ -183,6 +182,7 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
 
             'cleanUp_scene_0_1',
             'referenceCheck_scene_0_0',
+            'hierarchy_scene_0_0',
             'unitCheck_scene_0_0',
             'animationKeys_scene_0_1',
             'emptyGroups_scene_0_0',

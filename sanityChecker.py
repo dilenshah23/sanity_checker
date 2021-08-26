@@ -306,22 +306,28 @@ def unfrozenTransforms_fix(list, SLMesh):
     return "fixed"
 
 def attributes(list, SLMesh):
-    return ["Pending!"]
+    attributes = []
+    for obj in list:
+        smoothMeshPreview = cmds.getAttr("%s.displaySmoothMesh" % obj)
+        displaySubd = cmds.getAttr("%s.displaySubdComps" % obj)
+        previewDivisionLevels = cmds.getAttr("%s.smoothLevel" % obj)
+        usePreviewLevel = cmds.getAttr("%s.useSmoothPreviewForRender" % obj)
+        renderDivisionLevel = cmds.getAttr("%s.renderSmoothLevel" % obj)
+        if smoothMeshPreview != 0 or \
+                displaySubd != 1 or \
+                previewDivisionLevels != 1 or \
+                usePreviewLevel != 1 or \
+                renderDivisionLevel != 1:           
+            attributes.append(obj)
+    return attributes
 
 def attributes_fix(list, SLMesh):
-    return ["Pending!"]
-
-def smoothMesh(list, SLMesh):
-    smoothMesh = []
     for obj in list:
-        level = cmds.displaySmoothness(obj, q=True, polygonObject=True)[0]
-        if level == 3:
-            smoothMesh.append(obj)
-    return smoothMesh
-
-def smoothMesh_fix(list, SLMesh):
-    for obj in list:
-        cmds.displaySmoothness(obj, polygonObject=1, pointsShaded=1)
+        cmds.setAttr("%s.displaySmoothMesh" % obj, 0)
+        cmds.setAttr("%s.displaySubdComps" % obj, 1)
+        cmds.setAttr("%s.smoothLevel" % obj, 1)
+        cmds.setAttr("%s.useSmoothPreviewForRender" % obj, 1)
+        cmds.setAttr("%s.renderSmoothLevel" % obj, 1)
     return "fixed"
 
 def intermediateObjects(list, SLMesh):
@@ -380,11 +386,16 @@ def negativeScale_fix(list, SLMesh):
             cmds.makeIdentity(obj, apply=True, s=True, n=False, pn=True)
     return "fixed"
 
-def hierarchy(list, SLMesh):
-    return ["Pending!"]
-
-def hierarchy_fix(list, SLMesh):
-    return ["Pending!"]
+def modelHierarchy(list, SLMesh):
+    modelHierarchy = []
+    for obj in list:
+        parent = cmds.listRelatives(obj, p=True)
+        if parent:
+            if parent[0] not in ["low", "base", "hi", "sculpt"]:
+                modelHierarchy.append(obj)
+        else:
+            modelHierarchy.append(obj)
+    return modelHierarchy
 
 def shaders(list, SLMesh):
     shaders = []
@@ -424,10 +435,22 @@ def history_fix(list, SLMesh):
 
 # UV checks
 def currentUv(list, SLMesh):
-    return ["Pending!"]
+    currentUVs = []
+    for obj in list:
+        currentUVSet = cmds.polyUVSet( obj, q=True, currentUVSet=True )[0]
+        if currentUVSet != "map1":
+            currentUVs.append(obj)
+    return currentUVs
 
 def multiUv(list, SLMesh):
-    return ["Pending!"]
+    multiUVs = []
+    uv_sets = ["map1", "custommask"]
+    for obj in list:
+        allUVSet = cmds.polyUVSet( obj, q=True, allUVSets=True )
+        check =  all(item in allUVSet for item in uv_sets)
+        if not check:
+            multiUVs.append(obj)
+    return multiUVs
 
 def missingUv(list, SLMesh):
     missingUVs = []
@@ -574,7 +597,22 @@ def namespaces_fix(list, SLMesh):
 
 #Texture Checks
 def textureSize(list, SLMesh):
-    return ["Pending!"]
+    textures = []
+    files = cmds.ls(type='file')
+    for f in files:
+        shader = cmds.listConnections("%s.outColor" % f, d=True)
+        if shader:
+            textureFile = cmds.getAttr("%s.fileTextureName" % f)
+            width = cmds.getAttr("%s.outSizeX" % f)
+            height = cmds.getAttr("%s.outSizeY" % f)
+            if width != 4096 or height != 4096:
+                textures.append(shader[0])
+            elif width != 8192 or height != 8192:
+                textures.append(shader[0])
+            else:
+                textures.append(shader[0])
+    return textures
+
 
 def imageBrightness(list, SLMesh):
     return ["Pending!"]
@@ -641,6 +679,14 @@ def referenceCheck(list, SLMesh):
     references = cmds.file(q=True, r=True)
     if references:
         return references
+
+def hierarchy(list, SLMesh):
+    hierarchy = []
+    groups = ["meta", "stock", "root"]
+    for group in groups:
+        if not cmds.objExists(group):
+            hierarchy.append(group)
+    return hierarchy
 
 def unitCheck(list, SLMesh):
     if not cmds.currentUnit(q=True, l=True) in ["mm", "cm"]:
