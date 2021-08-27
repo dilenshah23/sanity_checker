@@ -133,7 +133,7 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
         self.reportBoxLayout.addWidget(self.clearButton)
 
         # Adding the stretch element to the checks UI to get everything at the top
-        self.resize(600, 750)
+        self.resize(750, 750)
         self.list = [
             'triangles_topology_0_0',
             'ngons_topology_0_0',
@@ -212,6 +212,7 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
         self.commandCheckBox = {}
         self.errorNodesButton = {}
         self.errorNodes = {}
+        self.errorMessages = {}
         self.commandFixButton = {}
         self.commandFix = {}
         self.commandRunButton = {}
@@ -333,7 +334,6 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
         if state:
             self.categoryCheckBox[obj].setText(u'\u21B5'.encode('utf-8'))
             self.categoryWidget[obj].setVisible(not state)
-            self.adjustSize()
         else:
             self.categoryCheckBox[obj].setText(u'\u2193'.encode('utf-8'))
             self.categoryWidget[obj].setVisible(not state)
@@ -378,12 +378,12 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
         nodes = []
         self.SLMesh.clear()
         allUsuableNodes = []
-        allNodes = cmds.ls(transforms=True, l=True)
+        allNodes = cmds.ls(transforms=True)
         for obj in allNodes:
             if not obj in {'front', 'persp', 'top', 'side'}:
                 allUsuableNodes.append(obj)
 
-        selection = cmds.ls(sl=True, l=True)
+        selection = cmds.ls(sl=True)
         topNode = self.selectedTopNode_UI.text()
         if len(selection) > 0:
             nodes = selection
@@ -415,13 +415,13 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
         else:
             for command in commands:
                 # For Each node in filterNodes, run command.
-                self.errorNodes[command] = getattr(sanityChecker, command)(nodes, self.SLMesh)
+                self.errorNodes[command], self.errorMessages[command] = getattr(sanityChecker, command)(nodes, self.SLMesh)
                 # Return error nodes
                 if self.errorNodes[command]:
                     if command in ["triangles", "ngons", "intersections"]:
-                        self.reportOutputUI.insertPlainText(command + " -- WARNING\n")
+                        self.reportOutputUI.insertPlainText("%s -- WARNING\n" % command)
                         for obj in self.errorNodes[command]:
-                            self.reportOutputUI.insertPlainText("    ---->    " + obj + "\n")
+                            self.reportOutputUI.insertPlainText("    ---->     %s - %s\n" % (obj, self.errorMessages[command]))
                         self.reportOutputUI.insertPlainText("\n")
                     
                         self.errorNodesButton[command].setEnabled(True)
@@ -431,9 +431,9 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
                                                                     color: #000000")
 
                     else:
-                        self.reportOutputUI.insertPlainText(command + " -- FAILED\n")
+                        self.reportOutputUI.insertPlainText("%s -- FAILED\n" % command)
                         for obj in self.errorNodes[command]:
-                            self.reportOutputUI.insertPlainText("    ---->    " + obj + "\n")
+                            self.reportOutputUI.insertPlainText("    ---->     %s - %s\n" % (obj, self.errorMessages[command]))
                         self.reportOutputUI.insertPlainText("\n")
 
                         self.errorNodesButton[command].setEnabled(True)
@@ -451,8 +451,10 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
                 else:
                     self.commandLabel[command].setStyleSheet(
                         "background-color: #446644; font-size:12px")
-                    self.reportOutputUI.insertPlainText(command + " -- SUCCESS\n\n")
+                    self.reportOutputUI.insertPlainText("%s -- SUCCESS\n\n" % command)
                     self.errorNodesButton[command].setEnabled(False)
+                    if self.commandFix.has_key(command):
+                        self.commandFixButton[command].setEnabled(False)
 
     # Write the report to report UI.
     def sanityCheck(self):
@@ -484,6 +486,7 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
             self.reportOutputUI.clear()
             self.reportOutputUI.insertPlainText(command + " -- SUCCESS\n\n")
             self.errorNodesButton[command].setEnabled(False)
+            self.commandFixButton[command].setEnabled(False)
         else:
             self.commandLabel[command].setStyleSheet(
                         "background-color: #664444; font-size:12px")

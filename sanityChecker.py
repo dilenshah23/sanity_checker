@@ -1,3 +1,4 @@
+import os
 import maya.mel as mel
 import maya.cmds as cmds
 import pymel.core as pm
@@ -25,7 +26,7 @@ def triangles(list, SLMesh):
             else:
                 faceIt.next()
         selIt.next()
-    return triangles
+    return triangles, "is a Triangle"
 
 def ngons(list, SLMesh):
     ngons = []
@@ -46,7 +47,7 @@ def ngons(list, SLMesh):
             else:
                 faceIt.next()
         selIt.next()
-    return ngons
+    return ngons, "is an Ngon"
 
 def zeroAreaFaces(list, SLMesh):
     zeroAreaFaces = []
@@ -67,7 +68,7 @@ def zeroAreaFaces(list, SLMesh):
             else:
                 faceIt.next()
         selIt.next()
-    return zeroAreaFaces
+    return zeroAreaFaces, "is a Zero Area Face"
 
 def zeroLengthEdges(list, SLMesh):
     zeroLengthEdges = []
@@ -82,7 +83,7 @@ def zeroLengthEdges(list, SLMesh):
                 zeroLengthEdges.append(componentName)
             edgeIt.next()
         selIt.next()
-    return zeroLengthEdges
+    return zeroLengthEdges, "is a Zero Length Edge"
 
 def openEdges(list, SLMesh):
     openEdges = []
@@ -99,10 +100,10 @@ def openEdges(list, SLMesh):
                 pass
             edgeIt.next()
         selIt.next()
-    return openEdges
+    return openEdges, "is an open Edge"
 
 def floatingVertices(list, SLMesh):
-    poles = []
+    floatingVertices = []
     selIt = om.MItSelectionList(SLMesh)
     while not selIt.isDone():
         vertexIt = om.MItMeshVertex(selIt.getDagPath())
@@ -112,12 +113,12 @@ def floatingVertices(list, SLMesh):
                 vertexIndex = vertexIt.index()
                 componentName = str(objectName) + \
                     '.vtx[' + str(vertexIndex) + ']'
-                poles.append(componentName)
+                floatingVertices.append(componentName)
             else:
                 pass
             vertexIt.next()
         selIt.next()
-    return poles
+    return floatingVertices, "is a Floating Vertex"
 
 def poles(list, SLMesh):
     poles = []
@@ -135,7 +136,7 @@ def poles(list, SLMesh):
                 pass
             vertexIt.next()
         selIt.next()
-    return poles
+    return poles, "is a Pole Vertex"
 
 def hardEdges(list, SLMesh):
     hardEdges = []
@@ -152,7 +153,7 @@ def hardEdges(list, SLMesh):
                 pass
             edgeIt.next()
         selIt.next()
-    return hardEdges
+    return hardEdges, "is a Hard Edge"
 
 def lamina(list, SLMesh):
     selIt = om.MItSelectionList(SLMesh)
@@ -173,10 +174,10 @@ def lamina(list, SLMesh):
             else:
                 faceIt.next()
         selIt.next()
-    return lamina
+    return lamina, "is a Lamina Face"
 
 def nonManifoldEdges(list, SLMesh):
-    noneManifoldEdges = []
+    nonManifoldEdges = []
     selIt = om.MItSelectionList(SLMesh)
     while not selIt.isDone():
         edgeIt = om.MItMeshEdge(selIt.getDagPath())
@@ -185,12 +186,12 @@ def nonManifoldEdges(list, SLMesh):
             if edgeIt.numConnectedFaces() > 2:
                 edgeIndex = edgeIt.index()
                 componentName = str(objectName) + '.e[' + str(edgeIndex) + ']'
-                noneManifoldEdges.append(componentName)
+                nonManifoldEdges.append(componentName)
             else:
                 pass
             edgeIt.next()
         selIt.next()
-    return noneManifoldEdges
+    return nonManifoldEdges, "is a Non Manifold Edge"
 
 def starlike(list, SLMesh):
     starlike = []
@@ -211,7 +212,7 @@ def starlike(list, SLMesh):
             else:
                 polyIt.next()
         selIt.next()
-    return starlike
+    return starlike, "is a Star Face"
 
 
 #Model Check
@@ -220,7 +221,7 @@ def uncenteredPivots(list, SLMesh):
     for obj in list:
         if cmds.xform(obj, q=1, ws=1, rp=1) != [0, 0, 0]:
             uncenteredPivots.append(obj)
-    return uncenteredPivots
+    return uncenteredPivots, "pivot is not at origin"
 
 def uncenteredPivots_fix(list, SLMesh):
     for obj in list:
@@ -234,7 +235,7 @@ def lockedChannels(list, SLMesh):
         if attributes:
             for attr in attributes:
                 lockedChannels.append("%s.%s" % (obj, attr))
-    return lockedChannels
+    return lockedChannels, "is a locked channel"
 
 def lockedChannels_fix(list, SLMesh):
     for obj in list:
@@ -245,7 +246,7 @@ def normals(list, SLMesh):
     reversed_meshes = []
     for obj in list:
         #Conform object before looking for reversed faces:
-        cmds.polyNormal(obj, normalMode=2, userNormalMode=0,  ch=1)
+        polyNormal = cmds.polyNormal(obj, normalMode=2, userNormalMode=0,  ch=1)
         reversed = []
 
         #Convert to faces, then to vertexFaces:
@@ -282,7 +283,9 @@ def normals(list, SLMesh):
         if reversed:
             reversed_meshes.append(obj)
 
-        return reversed_meshes
+        cmds.delete(polyNormal)
+
+        return reversed_meshes, "normals is reversed"
 
 def normals_fix(list, SLMesh):
     for obj in list:
@@ -298,11 +301,12 @@ def unfrozenTransforms(list, SLMesh):
         scale = cmds.xform(obj, q=True, worldSpace=True, scale=True)
         if not translation == [0.0, 0.0, 0.0] or not rotation == [0.0, 0.0, 0.0] or not scale == [1.0, 1.0, 1.0]:
             unfrozenTransforms.append(obj)
-    return unfrozenTransforms
+    return unfrozenTransforms, "has transformations"
 
 def unfrozenTransforms_fix(list, SLMesh):
     for obj in list:
         cmds.makeIdentity(obj, apply=True, t=True, r=True, s=True, n=False, pn=True)
+        cmds.delete(obj, ch=True)
     return "fixed"
 
 def attributes(list, SLMesh):
@@ -319,7 +323,7 @@ def attributes(list, SLMesh):
                 usePreviewLevel != 1 or \
                 renderDivisionLevel != 1:           
             attributes.append(obj)
-    return attributes
+    return attributes, "does not have Default Smooth Attributes"
 
 def attributes_fix(list, SLMesh):
     for obj in list:
@@ -338,7 +342,7 @@ def intermediateObjects(list, SLMesh):
             io = cmds.ls(shape, io=True)
             if io:
                 intermediateObjects.append(obj)
-    return intermediateObjects
+    return intermediateObjects, "has Intermediate Objects"
 
 def vcolor(list, SLMesh):
     vcolor = []
@@ -349,11 +353,13 @@ def vcolor(list, SLMesh):
         else:
             if "vcolor" not in existing_color_sets:
                 vcolor.append(obj)
-    return vcolor
+    
+    return vcolor, "vcolor set does not exists!"
 
 def vcolor_fix(list, SLMesh):
     for obj in list:
         cmds.polyColorSet(obj, create=True, colorSet="vcolor")
+        cmds.delete(obj, ch=True)
     return "fixed"
 
 def multipleShapes(list, SLMesh):
@@ -362,7 +368,7 @@ def multipleShapes(list, SLMesh):
         shape = cmds.listRelatives(obj, shapes=True, fullPath=True)
         if len(shape) > 1:
             multipleShapes.append(obj)
-    return multipleShapes
+    return multipleShapes, "has Multiple Shapes"
 
 def multipleShapes_fix(list, SLMesh):
     for obj in list:
@@ -377,7 +383,7 @@ def negativeScale(list, SLMesh):
         scales = cmds.getAttr("%s.scale" % obj)[0]
         if [s for s in scales if s < 0]:
             negativeScale.append(obj)
-    return negativeScale
+    return negativeScale, "has Negative Scales"
 
 def negativeScale_fix(list, SLMesh):
     for obj in list:
@@ -395,7 +401,7 @@ def modelHierarchy(list, SLMesh):
                 modelHierarchy.append(obj)
         else:
             modelHierarchy.append(obj)
-    return modelHierarchy
+    return modelHierarchy, "is not parented in the Correct Model Group"
 
 def shaders(list, SLMesh):
     shaders = []
@@ -407,7 +413,7 @@ def shaders(list, SLMesh):
                 shadingGrps = cmds.listConnections(shape, type='shadingEngine')
             if not shadingGrps[0] == 'initialShadingGroup':
                 shaders.append(obj)
-    return shaders
+    return shaders, "is not assigned to Lambert"
 
 def shaders_fix(list, SLMesh):
     for obj in list:
@@ -425,7 +431,7 @@ def history(list, SLMesh):
                 historySize = len(cmds.listHistory(shape))
                 if historySize > 1:
                     history.append(obj)
-    return history
+    return history, "has History"
 
 def history_fix(list, SLMesh):
     for obj in list:
@@ -440,7 +446,7 @@ def currentUv(list, SLMesh):
         currentUVSet = cmds.polyUVSet( obj, q=True, currentUVSet=True )[0]
         if currentUVSet != "map1":
             currentUVs.append(obj)
-    return currentUVs
+    return currentUVs, "currentUV is not 'map1'"
 
 def multiUv(list, SLMesh):
     multiUVs = []
@@ -450,7 +456,7 @@ def multiUv(list, SLMesh):
         check =  all(item in allUVSet for item in uv_sets)
         if not check:
             multiUVs.append(obj)
-    return multiUVs
+    return multiUVs, "Incorrect UV Set name or has only One UV Set"
 
 def missingUv(list, SLMesh):
     missingUVs = []
@@ -468,7 +474,7 @@ def missingUv(list, SLMesh):
             else:
                 faceIt.next()
         selIt.next()
-    return missingUVs
+    return missingUVs, "has no UV sets"
 
 def uvRange(list, SLMesh):
     uvRange = []
@@ -498,7 +504,7 @@ def uvRange(list, SLMesh):
             else:
                 faceIt.next()
         selIt.next()
-    return uvRange
+    return uvRange, "UV Range Error"
 
 def crossBorder(list, SLMesh):
     crossBorder = []
@@ -532,7 +538,7 @@ def crossBorder(list, SLMesh):
             else:
                 faceIt.next()
         selIt.next()
-    return crossBorder
+    return crossBorder, "UV's crossing Borders"
 
 def selfPenetratingUv(list, SLMesh):
     selfPenetratingUVs = []
@@ -544,7 +550,7 @@ def selfPenetratingUv(list, SLMesh):
         if overlapping is not None:
             for obj in overlapping:
                 selfPenetratingUVs.append(obj)
-    return selfPenetratingUVs
+    return selfPenetratingUVs, "has Self-Penetrating UVs"
 
 
 #Naming Checks
@@ -554,14 +560,15 @@ def trailingNumbers(list, SLMesh):
     for obj in list:
         if obj[len(obj)-1] in numbers:
             trailingNumbers.append(obj)
-    return trailingNumbers
+    return trailingNumbers, "No trailing numbers"
 
 def duplicatedNames(list, SLMesh):
     duplicatedNames = []
     for item in list:
+        cmds.ls(item)
         if '|' in item:
             duplicatedNames.append(item)
-    return duplicatedNames
+    return duplicatedNames, "Duplicate names in scene"
 
 def shapeNames(list, SLMesh):
     shapeNames = []
@@ -572,7 +579,7 @@ def shapeNames(list, SLMesh):
             name = new[-1] + "Shape"
             if not shape[0] == name:
                 shapeNames.append(obj)
-    return shapeNames
+    return shapeNames, "Incorrect Shape Name"
 
 def shapeNames_fix(list, SLMesh):
     for obj in list:
@@ -586,7 +593,7 @@ def namespaces(list, SLMesh):
     for obj in list:
         if ':' in obj:
             namespaces.append(obj)
-    return namespaces
+    return namespaces, "Namespace Error"
 
 def namespaces_fix(list, SLMesh):
     for obj in list:
@@ -611,14 +618,54 @@ def textureSize(list, SLMesh):
                 textures.append(shader[0])
             else:
                 textures.append(shader[0])
-    return textures
-
+    if not files:
+        return [None], "No Texture Files found"
+    else:
+        return textures, "Texture is not 4K or 8K"
 
 def imageBrightness(list, SLMesh):
-    return ["Pending!"]
+    try:
+        import PIL
+        from PIL import Image
+    except:
+        return ["Import Error"], "Module Image from PIL not found"
+    imageBrightness = []
+    files = cmds.ls(type='file')
+    for f in files:
+        shader = cmds.listConnections("%s.outColor" % f, d=True)
+        if shader:
+            textureFile = cmds.getAttr("%s.fileTextureName" % f)
+            img = Image.open(textureFile) 
+            extrema = img.convert("L").getextrema()
+            if extrema == (0, 0):
+                imageBrightness.append(f)
+            elif extrema == (1, 1):
+                imageBrightness.append(f)
+    if not files:
+        return [None], "No Texture Files found"
+    else:
+        return imageBrightness, "is either Black or White"
 
 def textureNames(list, SLMesh):
-    return ["Pending!"]
+    textureTypes = ["baseColor", "height", "metalness", "normal", "roughness", "emissive", "mask"]
+    textures = []
+    files = cmds.ls(type='file')
+    for f in files:
+        textureFile = cmds.getAttr("%s.fileTextureName" % f)
+        textureName = os.path.basename(textureFile)
+        try:
+            name, udim, format = textureName.split(".")
+            project, asset, object, channel = name.split("_")
+            
+            if channel not in textureTypes: textures.append(f)
+            elif format != "exr": textures.append(f)
+            elif not ((abs(1000 - int(udim)) <= 100) or (abs(2000 - int(udim)) <= 100)): textures.append(f)
+        except:
+            textures.append(f)
+    if not files:
+        return [None], "No Texture Files found"
+    else:
+        return textures, "Texture Name Format Error, Format: #[project]_[asset]_[object]_[channel].[udim].exr"
 
 
 #Lookdev Check/Fix
@@ -628,7 +675,7 @@ def colorSet(list, SLMesh):
         existing_color_sets = cmds.polyColorSet(obj, q=True, acs=True)
         if existing_color_sets:
             colorSet.append(obj)
-    return colorSet
+    return colorSet, "Color Sets Found"
 
 def colorSet_fix(list, SLMesh):
     for obj in list:
@@ -639,6 +686,7 @@ def colorSet_fix(list, SLMesh):
 
 def unusedShaders(list, SLMesh):
     mel.eval('hyperShadePanelMenuCommand("hyperShadePanel1","deleteUnusedNodes")')
+    return [], ""
 
 def unusedShaders_fix(list, SLMesh):
     mel.eval('hyperShadePanelMenuCommand("hyperShadePanel1","deleteUnusedNodes")')
@@ -653,7 +701,7 @@ def standardSurface(list, SLMesh):
         if matMaya:
             if cmds.objectType(matMaya[0]) != "standardSurface":
                 standardSurface.append(obj)
-    return standardSurface
+    return standardSurface, "is not assigned to StandardSurface"
 
 def standardSurface_fix(list, SLMesh):
     for obj in list:
@@ -674,11 +722,15 @@ def cleanUp(list, SLMesh):
     if pfxToons:
         for pfxToon in pfxToons:
             cmds.delete(cmds.listRelatives(pfxToon, p=True))
+    return [], ""
 
 def referenceCheck(list, SLMesh):
+    references = []
     references = cmds.file(q=True, r=True)
     if references:
-        return references
+        return references, "References Found!"
+    else:
+        return references, ""
 
 def hierarchy(list, SLMesh):
     hierarchy = []
@@ -686,11 +738,14 @@ def hierarchy(list, SLMesh):
     for group in groups:
         if not cmds.objExists(group):
             hierarchy.append(group)
-    return hierarchy
+    return hierarchy, "group is missing"
 
 def unitCheck(list, SLMesh):
-    if not cmds.currentUnit(q=True, l=True) in ["mm", "cm"]:
-        return ["Unit is not cm or mm"]
+    unit = cmds.currentUnit(q=True, l=True)
+    if not unit in ["mm", "cm"]:
+        return [unit], "is not mm or cm"
+    else:
+        return [], ""
 
 def animationKeys(list, SLMesh):
     animationKeys = []
@@ -698,7 +753,7 @@ def animationKeys(list, SLMesh):
         animCurves = cmds.listConnections(obj, type="animCurve")
         if animCurves:
             animationKeys.append(obj)
-    return animationKeys
+    return animationKeys, "Animation Keys found"
 
 def animationKeys_fix(list, SLMesh):
     for obj in list:
@@ -712,13 +767,15 @@ def emptyGroups(list, SLMesh):
         children = cmds.listRelatives(obj, ad=True)
         if children is None:
             emptyGroups.append(obj)
-    return emptyGroups
+    return emptyGroups, "is an empty group"
 
 def layers(list, SLMesh):
     layers = cmds.ls(type="displayLayer")
     layers.remove("defaultLayer")
     if layers:
-        return layers
+        return layers, "is a display layer"
+    else:
+        return [], ""
 
 def layers_fix(list, SLMesh):
     layers = cmds.ls(type="displayLayer")
@@ -759,3 +816,5 @@ def intersections(list, SLMesh):
         cmds.setAttr("%s.selfIntersect" % obj, 1)
         cmds.setAttr("%s.profileLines" % obj, 0)
         cmds.setAttr("%s.resampleIntersection" % obj, 1)
+
+    return [], ""
