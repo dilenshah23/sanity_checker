@@ -230,16 +230,33 @@ def uncenteredPivots_fix(list, SLMesh):
 
 def lockedChannels(list, SLMesh):
     lockedChannels = []
+    lockedGroups = ["stock", "meta", "root", "mesh", "base", "hi", "low", "sculpt", "hair"]
     for obj in list:
-        attributes = cmds.listAttr(obj, l=True)
-        if attributes:
-            for attr in attributes:
-                lockedChannels.append("%s.%s" % (obj, attr))
+        if obj not in lockedGroups:
+            attributes = cmds.listAttr(obj, k=True, l=True)
+            if attributes:
+                for attr in attributes:
+                    lockedChannels.append("%s.%s" % (obj, attr))
     return lockedChannels, "is a locked channel"
 
 def lockedChannels_fix(list, SLMesh):
     for obj in list:
         cmds.setAttr(obj, l=False)
+    return "fixed"
+
+def lockedHierarchy(list, SLMesh):
+    unlockedChannels = []
+    list = ["stock", "meta", "root", "mesh", "base", "hi", "low", "sculpt", "hair"]
+    for obj in list:
+        attributes = cmds.listAttr(obj, k=True, l=False)
+        if attributes:
+            for attr in attributes:
+                unlockedChannels.append("%s.%s" % (obj, attr))
+    return unlockedChannels, "is an unlocked channel"
+
+def lockedHierarchy_fix(list, SLMesh):
+    for obj in list:
+        cmds.setAttr(obj, l=True)
     return "fixed"
 
 def normals(list, SLMesh):
@@ -312,17 +329,19 @@ def unfrozenTransforms_fix(list, SLMesh):
 def attributes(list, SLMesh):
     attributes = []
     for obj in list:
-        smoothMeshPreview = cmds.getAttr("%s.displaySmoothMesh" % obj)
-        displaySubd = cmds.getAttr("%s.displaySubdComps" % obj)
-        previewDivisionLevels = cmds.getAttr("%s.smoothLevel" % obj)
-        usePreviewLevel = cmds.getAttr("%s.useSmoothPreviewForRender" % obj)
-        renderDivisionLevel = cmds.getAttr("%s.renderSmoothLevel" % obj)
-        if smoothMeshPreview != 0 or \
-                displaySubd != 1 or \
-                previewDivisionLevels != 1 or \
-                usePreviewLevel != 1 or \
-                renderDivisionLevel != 1:           
-            attributes.append(obj)
+        shapes = cmds.listRelatives(obj, shapes=True, fullPath=True)
+        if shapes and cmds.objectType(shapes[0])=="mesh":
+            smoothMeshPreview = cmds.getAttr("%s.displaySmoothMesh" % obj)
+            displaySubd = cmds.getAttr("%s.displaySubdComps" % obj)
+            previewDivisionLevels = cmds.getAttr("%s.smoothLevel" % obj)
+            usePreviewLevel = cmds.getAttr("%s.useSmoothPreviewForRender" % obj)
+            renderDivisionLevel = cmds.getAttr("%s.renderSmoothLevel" % obj)
+            if smoothMeshPreview != 0 or \
+                    displaySubd != 1 or \
+                    previewDivisionLevels != 1 or \
+                    usePreviewLevel != 1 or \
+                    renderDivisionLevel != 1:           
+                attributes.append(obj)
     return attributes, "does not have Default Smooth Attributes"
 
 def attributes_fix(list, SLMesh):
@@ -347,12 +366,14 @@ def intermediateObjects(list, SLMesh):
 def vcolor(list, SLMesh):
     vcolor = []
     for obj in list:
-        existing_color_sets = cmds.polyColorSet(obj, q=True, acs=True)
-        if not existing_color_sets:
-            vcolor.append(obj)
-        else:
-            if "vcolor" not in existing_color_sets:
+        shapes = cmds.listRelatives(obj, shapes=True, fullPath=True)
+        if shapes and cmds.objectType(shapes[0])=="mesh":
+            existing_color_sets = cmds.polyColorSet(obj, q=True, acs=True)
+            if not existing_color_sets:
                 vcolor.append(obj)
+            else:
+                if "vcolor" not in existing_color_sets:
+                    vcolor.append(obj)
     
     return vcolor, "vcolor set does not exists!"
 
@@ -365,9 +386,10 @@ def vcolor_fix(list, SLMesh):
 def multipleShapes(list, SLMesh):
     multipleShapes = []
     for obj in list:
-        shape = cmds.listRelatives(obj, shapes=True, fullPath=True)
-        if len(shape) > 1:
-            multipleShapes.append(obj)
+        shapes = cmds.listRelatives(obj, shapes=True, fullPath=True)
+        if shapes and cmds.objectType(shapes[0])=="mesh":
+            if len(shapes) > 1:
+                multipleShapes.append(obj)
     return multipleShapes, "has Multiple Shapes"
 
 def multipleShapes_fix(list, SLMesh):
@@ -399,20 +421,20 @@ def modelHierarchy(list, SLMesh):
         if parent:
             if parent[0] not in ["low", "base", "hi", "sculpt"]:
                 modelHierarchy.append(obj)
-        else:
-            modelHierarchy.append(obj)
+        # else:
+            # modelHierarchy.append(obj)
     return modelHierarchy, "is not parented in the Correct Model Group"
 
 def shaders(list, SLMesh):
     shaders = []
     for obj in list:
         shadingGrps = None
-        shape = cmds.listRelatives(obj, shapes=True, fullPath=True)
-        if cmds.nodeType(shape) == 'mesh':
-            if shape is not None:
-                shadingGrps = cmds.listConnections(shape, type='shadingEngine')
-            if not shadingGrps[0] == 'initialShadingGroup':
-                shaders.append(obj)
+        shapes = cmds.listRelatives(obj, shapes=True, fullPath=True)
+        if shapes and cmds.objectType(shapes[0])=="mesh":
+            if shapes is not None:
+                shadingGrps = cmds.listConnections(shapes[0], type='shadingEngine')
+                if not shadingGrps[0] == 'initialShadingGroup':
+                    shaders.append(obj)
     return shaders, "is not assigned to Lambert"
 
 def shaders_fix(list, SLMesh):
@@ -425,12 +447,11 @@ def shaders_fix(list, SLMesh):
 def history(list, SLMesh):
     history = []
     for obj in list:
-        shape = cmds.listRelatives(obj, shapes=True, fullPath=True)
-        if shape is not None:
-            if cmds.nodeType(shape[0]) == 'mesh':
-                historySize = len(cmds.listHistory(shape))
-                if historySize > 1:
-                    history.append(obj)
+        shapes = cmds.listRelatives(obj, shapes=True, fullPath=True)
+        if shapes and cmds.objectType(shapes[0])=="mesh":
+            historySize = len(cmds.listHistory(shapes[0]))
+            if historySize > 1:
+                history.append(obj)
     return history, "has History"
 
 def history_fix(list, SLMesh):
@@ -452,10 +473,12 @@ def multiUv(list, SLMesh):
     multiUVs = []
     uv_sets = ["map1", "custommask"]
     for obj in list:
-        allUVSet = cmds.polyUVSet( obj, q=True, allUVSets=True )
-        check =  all(item in allUVSet for item in uv_sets)
-        if not check:
-            multiUVs.append(obj)
+        shapes = cmds.listRelatives(obj, shapes=True, fullPath=True)
+        if shapes and cmds.objectType(shapes[0])=="mesh":
+            allUVSet = cmds.polyUVSet( obj, q=True, allUVSets=True )
+            uv_diff = [item for item in uv_sets if item not in allUVSet]
+            if uv_diff:
+                multiUVs.append(obj)
     return multiUVs, "Incorrect UV Set name or has only One UV Set"
 
 def missingUv(list, SLMesh):
@@ -695,12 +718,13 @@ def unusedShaders_fix(list, SLMesh):
 def standardSurface(list, SLMesh):
     standardSurface = []
     for obj in list:
-        shape = cmds.listRelatives(obj, shapes=True, fullPath=True)
-        sgNodes = cmds.listConnections(shape, type='shadingEngine')
-        matMaya = cmds.listConnections(sgNodes[0] + '.surfaceShader')
-        if matMaya:
-            if cmds.objectType(matMaya[0]) != "standardSurface":
-                standardSurface.append(obj)
+        shapes = cmds.listRelatives(obj, shapes=True, fullPath=True)
+        if shapes and cmds.objectType(shapes[0])=="mesh":
+            sgNodes = cmds.listConnections(shapes[0], type='shadingEngine')
+            matMaya = cmds.listConnections(sgNodes[0] + '.surfaceShader')
+            if matMaya:
+                if cmds.objectType(matMaya[0]) != "standardSurface":
+                    standardSurface.append(obj)
     return standardSurface, "is not assigned to StandardSurface"
 
 def standardSurface_fix(list, SLMesh):
@@ -764,9 +788,10 @@ def animationKeys_fix(list, SLMesh):
 def emptyGroups(list, SLMesh):
     emptyGroups = []
     for obj in list:
-        children = cmds.listRelatives(obj, ad=True)
-        if children is None:
-            emptyGroups.append(obj)
+        if cmds.objectType(obj) == "transform":
+            children = cmds.listRelatives(obj, ad=True)
+            if children is None:
+                emptyGroups.append(obj)
     return emptyGroups, "is an empty group"
 
 def layers(list, SLMesh):
@@ -788,33 +813,132 @@ def layers_fix(list, SLMesh):
     return "fixed"
 
 # Intersections Check
-def intersections(list, SLMesh):
-    if len(cmds.ls(sl=True)) == 0:
-        return ["Nothing selected!"]
-
-    sceneBefore = cmds.ls(type="transform")
-    objectCount = len(sceneBefore)
-    mel.eval("assignNewPfxToon;")
-    sceneNow = cmds.ls(type="transform")
-    objectCountNow = len(sceneNow)
-    
-    if objectCountNow > objectCount:
-        diff = objectCountNow - objectCount
-        newObjs = cmds.ls(sl=True, tail=diff)
-        cmds.select(newObjs)
-
-    list = cmds.ls(sl=True)
+def findIntersections(list, SLMesh):
+    cmds.loadPlugin("meshInfo", qt=True)
+    shapes = []
     for obj in list:
-        cmds.select(obj)
-        cmds.setAttr("%s.creaseLines" % obj, 0)
-        cmds.setAttr("%s.borderLines" % obj, 0)
-        cmds.setAttr("%s.intersectionLines" % obj, 1)
-        cmds.setAttr("%s.lineWidth" % obj, 0.05)
-        cmds.setAttr("%s.intersectionColor" % obj, 1, 0, 1,  type="double3")
-        cmds.setAttr("%s.occlusionWidthScale" % obj, 0)
-        cmds.setAttr("%s.profileLineWidth" % obj, 0)
-        cmds.setAttr("%s.selfIntersect" % obj, 1)
-        cmds.setAttr("%s.profileLines" % obj, 0)
-        cmds.setAttr("%s.resampleIntersection" % obj, 1)
+        shape = cmds.listRelatives(obj, shapes=True, fullPath=True)[0]
+        if shape:
+            shapes.append(shape)
+    if not len(shapes)>1:
+        cmds.select(cl=True)
+        return
 
-    return [], ""
+    sel_str = []
+    inc = 1      
+    for i in range(0, len(shapes)-1):
+        for j in range(i+1, len(shapes)):
+            vcg = VCGIntersectionFinder(shapes[i], shapes[j])
+            res = vcg.get_intersecting_selection_strings()
+            if res:
+                for r in res:
+                    sel_str.append(r) 
+        inc += 1
+    
+    cmds.select(sel_str)
+    if sel_str:
+        return ["Error"], "Intersections found!"
+    else:
+        return [], ""
+
+class VCGIntersectionFinder(object):
+    def __init__(self, mesh_a, mesh_b):
+        self._mesh_a = mesh_a
+        self._mesh_b = mesh_b
+        if not self._mesh_a:
+            err = "Invalid node passed in as mesh_a."
+            err += "\nMust be of type kMesh!"
+            raise TypeError(err)
+        if not self._mesh_b:
+            err = "Invalid node passed in as mesh_b."
+            err += "\nMust be of type kMesh!"
+            raise TypeError(err)
+
+    def get_intersecting_face_ids(self):
+        ids = cmds.meshInfo(self._mesh_a, i=self._mesh_b)
+        if not ids:
+            return None
+        cnt_a = ids[0]
+        cnt_b = ids[1]
+        face_ids_a = list()
+        face_ids_b = list()
+        it = 1
+        for i in range(cnt_a):
+            it += 1
+            face_ids_a.append(ids[it])
+        for i in range(cnt_b):
+            it += 1
+            face_ids_b.append(ids[it])
+        return (face_ids_a, face_ids_b)
+
+    def get_intersecting_selection_strings(self):
+        ids = self.get_intersecting_face_ids()
+        if not ids:
+            return []
+
+        sel = list()
+        for _id in ids[0]:
+            sel.append("%s.f[%s]" % (
+                self._mesh_a,
+                _id))
+        for _id in ids[1]:
+            sel.append("%s.f[%s]" % (
+                self._mesh_b,
+                _id))
+        return sel
+
+    def select_intersecting_faces(self):
+        sel_str = self.get_intersecting_selection_strings()
+        cmds.select(sel_str)           
+
+
+def findSelfIntersections(list, SLMesh):
+    cmds.loadPlugin("meshInfo", qt=True)
+    shapes = []
+    for obj in list:
+        shape = cmds.listRelatives(obj, shapes=True, fullPath=True)[0]
+        if shape:
+            shapes.append(shape)
+    if not shapes:
+        cmds.select(cl=True)
+        return
+
+    sel_str = []      
+    for shape in shapes:
+        i = VCGSelfIntersectionFinder(shape)
+        sel_str.extend(i.get_intersecting_selection_strings())
+    cmds.select(sel_str)
+
+    if sel_str:
+        return ["Error"], "Self-Intersections found!"
+    else:
+        return [], ""
+
+class VCGSelfIntersectionFinder(object):
+    def __init__(self, in_mesh):
+        self._in_mesh = in_mesh
+        if not self._in_mesh:
+            err = "Invalid node passed in."
+            err += "\nMust be of type kMesh!"
+            raise TypeError(err)
+
+
+    def get_intersecting_face_ids(self):
+        ids = cmds.meshInfo(self._in_mesh, si=True)
+        return ids
+
+    def get_intersecting_selection_strings(self):
+        ids = self.get_intersecting_face_ids()
+        if not ids:
+            return []
+        sel = []
+        for _id in ids:
+            sel.append("%s.f[%s]" % (
+                self._in_mesh,
+                _id))
+
+        return sel
+
+    def select_intersecting_faces(self):
+        sel_str = self.get_intersecting_selection_strings()
+        cmds.select(sel_str)

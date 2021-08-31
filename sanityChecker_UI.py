@@ -99,6 +99,7 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
         selectedModelVLayout = QtWidgets.QHBoxLayout()
         self.checks.addLayout(selectedModelVLayout)
 
+
         selectedModelLabel = QtWidgets.QLabel("Top Node")
         selectedModelLabel.setMaximumWidth(60)
 
@@ -149,6 +150,7 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
 
             'uncenteredPivots_model_0_1',
             'lockedChannels_model_0_1',
+            'lockedHierarchy_model_0_1',
             'normals_model_0_1',
             'unfrozenTransforms_model_0_1',
             'attributes_model_0_1',
@@ -188,7 +190,8 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
             'emptyGroups_scene_0_0',
             'layers_scene_0_1',
 
-            'intersections_intersections_0_0',
+            'findIntersections_intersections_0_0',
+            'findSelfIntersections_intersections_0_0',
         ]
 
         allCategories = []
@@ -197,7 +200,7 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
             number = obj.split('_')
             allCategories.append(number[1])
 
-        category = ['topology', 'model', 'uv', 'naming', 'textures', 'lookdev', 'scene', 'intersections']
+        self.category = ['topology', 'model', 'uv', 'naming', 'textures', 'lookdev', 'scene', 'intersections']
         self.SLMesh = om.MSelectionList()
 
         self.categoryLayout = {}
@@ -218,7 +221,7 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
         self.commandRunButton = {}
 
         # Create the Categories section!!
-        for obj in category:
+        for obj in self.category:
             self.categoryWidget[obj] = QtWidgets.QWidget()
             self.categoryLayout[obj] = QtWidgets.QVBoxLayout()
             self.categoryHeader[obj] = QtWidgets.QHBoxLayout()
@@ -310,6 +313,12 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
         self.checkRunButton.clicked.connect(self.sanityCheck)
         self.checkRunButton.setStyleSheet("font-size:14px;")
 
+        # Un-check button
+        self.unCheckButton = QtWidgets.QPushButton("Un-Check All")
+        self.unCheckButton.clicked.connect(self.uncheckAll)
+        self.unCheckButton.clicked.connect(self.checkCategory)
+        self.checks.addWidget(self.unCheckButton)
+
         rows.addWidget(self.checkRunButton)
 
     # Definitions to manipulate the UI
@@ -322,7 +331,6 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
         return self.commandCheckBox[name].checkState()
 
     # Sets all checkboxes to True
-
     def checkAll(self):
         for obj in self.list:
             new = obj.split('_')
@@ -345,6 +353,9 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
             name = new[0]
             self.commandCheckBox[name].setChecked(False)
 
+        for obj in self.category:
+            self.categoryCheckBox[obj].setChecked(False)
+
     # Sets the checkbox to the oppositve of current state
     def invertCheck(self):
         for obj in self.list:
@@ -354,7 +365,6 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
                 not self.commandCheckBox[name].isChecked())
 
     def checkCategory(self, category):
-
         uncheckedCategoryButtons = []
         categoryButtons = []
 
