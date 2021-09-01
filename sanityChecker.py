@@ -379,6 +379,9 @@ def vcolor(list, SLMesh):
 
 def vcolor_fix(list, SLMesh):
     for obj in list:
+        existing_color_sets = cmds.polyColorSet(obj, q=True, acs=True)
+        if "vcolor" not in existing_color_sets:
+            cmds.polyColorSet(obj, d=True)
         cmds.polyColorSet(obj, create=True, colorSet="vcolor")
         cmds.delete(obj, ch=True)
     return "fixed"
