@@ -388,12 +388,12 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
         nodes = []
         self.SLMesh.clear()
         allUsuableNodes = []
-        allNodes = cmds.ls(transforms=True)
+        allNodes = cmds.ls(transforms=True, fl=True)
         for obj in allNodes:
             if not obj in {'front', 'persp', 'top', 'side'}:
                 allUsuableNodes.append(obj)
 
-        selection = cmds.ls(sl=True)
+        selection = cmds.ls(sl=True, fl=True)
         topNode = self.selectedTopNode_UI.text()
         if len(selection) > 0:
             nodes = selection

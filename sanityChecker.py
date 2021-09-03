@@ -233,9 +233,10 @@ def lockedChannels(list, SLMesh):
     lockedGroups = ["stock", "meta", "root", "mesh", "base", "hi", "low", "sculpt", "hair"]
     for obj in list:
         if obj not in lockedGroups:
-            attributes = cmds.listAttr(obj, k=True, l=True)
-            if attributes:
-                for attr in attributes:
+            attrs = ["tx", "ty", "tz", "rx", "ry", "rz", "sx", "sy", "sz", "v"]
+            for attr in attrs:
+                status = cmds.getAttr("%s.%s" % (obj, attr), l=True)
+                if status == True:
                     lockedChannels.append("%s.%s" % (obj, attr))
     return lockedChannels, "is a locked channel"
 
@@ -248,14 +249,17 @@ def lockedHierarchy(list, SLMesh):
     unlockedChannels = []
     list = ["stock", "meta", "root", "mesh", "base", "hi", "low", "sculpt", "hair"]
     for obj in list:
-        attributes = cmds.listAttr(obj, k=True, l=False)
-        if attributes:
-            for attr in attributes:
-                unlockedChannels.append("%s.%s" % (obj, attr))
+        if cmds.objExists(obj):
+            attrs = ["tx", "ty", "tz", "rx", "ry", "rz", "sx", "sy", "sz", "v"]
+            for attr in attrs:
+                status = cmds.getAttr("%s.%s" % (obj, attr), l=True)
+                if status == False:
+                    unlockedChannels.append("%s.%s" % (obj, attr))
     return unlockedChannels, "is an unlocked channel"
 
 def lockedHierarchy_fix(list, SLMesh):
     for obj in list:
+        cmds.lockNode(obj, lock=False)
         cmds.setAttr(obj, l=True)
     return "fixed"
 
@@ -301,6 +305,7 @@ def normals(list, SLMesh):
             reversed_meshes.append(obj)
 
         cmds.delete(polyNormal)
+        cmds.delete(obj, ch=True)
 
         return reversed_meshes, "normals is reversed"
 
@@ -371,9 +376,12 @@ def vcolor(list, SLMesh):
             existing_color_sets = cmds.polyColorSet(obj, q=True, acs=True)
             if not existing_color_sets:
                 vcolor.append(obj)
+            elif cmds.getAttr("%s.aiExportColors" % obj) != 1:
+                vcolor.append(obj)
+            elif "vcolor" not in existing_color_sets:
+                vcolor.append(obj)
             else:
-                if "vcolor" not in existing_color_sets:
-                    vcolor.append(obj)
+                pass
     
     return vcolor, "vcolor set does not exists!"
 
@@ -383,6 +391,7 @@ def vcolor_fix(list, SLMesh):
         if "vcolor" not in existing_color_sets:
             cmds.polyColorSet(obj, d=True)
         cmds.polyColorSet(obj, create=True, colorSet="vcolor")
+        cmds.setAttr("%s.aiExportColors" % obj, 1)
         cmds.delete(obj, ch=True)
     return "fixed"
 
@@ -420,12 +429,12 @@ def negativeScale_fix(list, SLMesh):
 def modelHierarchy(list, SLMesh):
     modelHierarchy = []
     for obj in list:
-        parent = cmds.listRelatives(obj, p=True)
-        if parent:
-            if parent[0] not in ["low", "base", "hi", "sculpt"]:
-                modelHierarchy.append(obj)
-        # else:
-            # modelHierarchy.append(obj)
+        shapes = cmds.listRelatives(obj, shapes=True, fullPath=True)
+        if shapes and cmds.objectType(shapes[0])=="mesh":
+            parent = cmds.listRelatives(obj, p=True)
+            if parent:
+                if parent[0] not in ["low", "base", "hi", "sculpt"]:
+                    modelHierarchy.append(obj)
     return modelHierarchy, "is not parented in the Correct Model Group"
 
 def shaders(list, SLMesh):
@@ -467,9 +476,11 @@ def history_fix(list, SLMesh):
 def currentUv(list, SLMesh):
     currentUVs = []
     for obj in list:
-        currentUVSet = cmds.polyUVSet( obj, q=True, currentUVSet=True )[0]
-        if currentUVSet != "map1":
-            currentUVs.append(obj)
+        shapes = cmds.listRelatives(obj, shapes=True, fullPath=True)
+        if shapes and cmds.objectType(shapes[0])=="mesh":
+            currentUVSet = cmds.polyUVSet( obj, q=True, currentUVSet=True )[0]
+            if currentUVSet != "map1":
+                currentUVs.append(obj)
     return currentUVs, "currentUV is not 'map1'"
 
 def multiUv(list, SLMesh):
@@ -479,9 +490,9 @@ def multiUv(list, SLMesh):
         shapes = cmds.listRelatives(obj, shapes=True, fullPath=True)
         if shapes and cmds.objectType(shapes[0])=="mesh":
             allUVSet = cmds.polyUVSet( obj, q=True, allUVSets=True )
-            uv_diff = [item for item in uv_sets if item not in allUVSet]
-            if uv_diff:
-                multiUVs.append(obj)
+            for uvSet in allUVSet:
+                if uvSet not in uv_sets:
+                    multiUVs.append(obj)
     return multiUVs, "Incorrect UV Set name or has only One UV Set"
 
 def missingUv(list, SLMesh):
@@ -584,8 +595,9 @@ def trailingNumbers(list, SLMesh):
     numbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
     trailingNumbers = []
     for obj in list:
-        if obj[len(obj)-1] in numbers:
-            trailingNumbers.append(obj)
+        if cmds.objectType(obj)=="transform":
+            if obj[len(obj)-1] in numbers:
+                trailingNumbers.append(obj)
     return trailingNumbers, "No trailing numbers"
 
 def duplicatedNames(list, SLMesh):
