@@ -136,6 +136,14 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
         # Adding the stretch element to the checks UI to get everything at the top
         self.resize(750, 750)
         self.list = [
+            'cleanUp_scene_0_1',
+            'referenceCheck_scene_0_0',
+            'hierarchy_scene_0_0',
+            'unitCheck_scene_0_0',
+            'animationKeys_scene_0_1',
+            # 'emptyGroups_scene_0_0',
+            'layers_scene_0_1',
+
             'triangles_topology_0_0',
             'ngons_topology_0_0',
             'zeroAreaFaces_topology_0_0',
@@ -159,8 +167,11 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
             'multipleShapes_model_0_1', 
             'negativeScale_model_0_1',
             'modelHierarchy_model_0_0',
-            'shaders_model_0_1',
+            # 'shaders_model_0_1',
             'history_model_0_1',
+
+            'findIntersections_intersections_0_0',
+            'findSelfIntersections_intersections_0_0',
 
             'currentUv_uv_0_0',
             'multiUv_uv_0_0',
@@ -181,17 +192,6 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
             'colorSet_lookdev_0_1',
             'unusedShaders_lookdev_0_1',
             'standardSurface_lookdev_0_1',
-
-            'cleanUp_scene_0_1',
-            'referenceCheck_scene_0_0',
-            'hierarchy_scene_0_0',
-            'unitCheck_scene_0_0',
-            'animationKeys_scene_0_1',
-            'emptyGroups_scene_0_0',
-            'layers_scene_0_1',
-
-            'findIntersections_intersections_0_0',
-            'findSelfIntersections_intersections_0_0',
         ]
 
         allCategories = []
@@ -200,7 +200,7 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
             number = obj.split('_')
             allCategories.append(number[1])
 
-        self.category = ['topology', 'model', 'uv', 'naming', 'textures', 'lookdev', 'scene', 'intersections']
+        self.category = ['scene', 'topology', 'model', 'intersections', 'uv', 'naming', 'textures', 'lookdev']
         self.SLMesh = om.MSelectionList()
 
         self.categoryLayout = {}

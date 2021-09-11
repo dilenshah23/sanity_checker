@@ -6,6 +6,81 @@ import maya.api.OpenMaya as om
 
 version = int(cmds.about(version=True))
 
+
+# Scene checks
+def cleanUp(list, SLMesh):
+    mel.eval('MLdeleteUnused;')
+    pfxToons = cmds.ls(type="pfxToon")
+    if pfxToons:
+        for pfxToon in pfxToons:
+            cmds.delete(cmds.listRelatives(pfxToon, p=True))
+    return [], ""
+
+def referenceCheck(list, SLMesh):
+    references = []
+    references = cmds.file(q=True, r=True)
+    if references:
+        return references, "References Found!"
+    else:
+        return references, ""
+
+def hierarchy(list, SLMesh):
+    hierarchy = []
+    groups = ["meta", "stock", "root"]
+    for group in groups:
+        if not cmds.objExists(group):
+            hierarchy.append(group)
+    return hierarchy, "group is missing"
+
+def unitCheck(list, SLMesh):
+    unit = cmds.currentUnit(q=True, l=True)
+    if not unit in ["mm", "cm"]:
+        return [unit], "is not mm or cm"
+    else:
+        return [], ""
+
+def animationKeys(list, SLMesh):
+    animationKeys = []
+    for obj in list:
+        animCurves = cmds.listConnections(obj, type="animCurve")
+        if animCurves:
+            animationKeys.append(obj)
+    return animationKeys, "Animation Keys found"
+
+def animationKeys_fix(list, SLMesh):
+    for obj in list:
+        animCurves = cmds.listConnections(obj, type="animCurve")
+        cmds.delete(animCurves)
+    return "fixed"
+
+def emptyGroups(list, SLMesh):
+    emptyGroups = []
+    for obj in list:
+        if cmds.objectType(obj) == "transform":
+            children = cmds.listRelatives(obj, ad=True)
+            if children is None:
+                emptyGroups.append(obj)
+    return emptyGroups, "is an empty group"
+
+def layers(list, SLMesh):
+    layers = cmds.ls(type="displayLayer")
+    layers.remove("defaultLayer")
+    if layers:
+        return layers, "is a display layer"
+    else:
+        return [], ""
+
+def layers_fix(list, SLMesh):
+    layers = cmds.ls(type="displayLayer")
+    layers.remove("defaultLayer")
+    for layer in layers:
+        try:
+            cmds.delete(layer)
+        except:
+            return "Error"
+    return "fixed"
+
+
 # Topology checks
 def triangles(list, SLMesh):
     triangles = []
@@ -382,17 +457,18 @@ def vcolor(list, SLMesh):
                 vcolor.append(obj)
             else:
                 pass
-    
-    return vcolor, "vcolor set does not exists!"
+    return vcolor, "vcolor set does not exists or wrong name"
 
 def vcolor_fix(list, SLMesh):
     for obj in list:
         existing_color_sets = cmds.polyColorSet(obj, q=True, acs=True)
-        if "vcolor" not in existing_color_sets:
-            cmds.polyColorSet(obj, d=True)
-        cmds.polyColorSet(obj, create=True, colorSet="vcolor")
+        if "vcolor" not in existing_color_sets or len(existing_color_sets) == 1:
+            cmds.polyColorSet(obj, cs=existing_color_sets[0], rn=True, nc="vcolor")
+            # cmds.polyColorSet(obj, d=True)
+        elif not existing_color_sets:
+            cmds.polyColorSet(obj, create=True, colorSet="vcolor")
+            cmds.delete(obj, ch=True)
         cmds.setAttr("%s.aiExportColors" % obj, 1)
-        cmds.delete(obj, ch=True)
     return "fixed"
 
 def multipleShapes(list, SLMesh):
@@ -470,6 +546,148 @@ def history_fix(list, SLMesh):
     for obj in list:
         cmds.delete(obj, ch=True)
     return "fixed"
+
+
+# Intersections Check
+def findIntersections(list, SLMesh):
+    cmds.loadPlugin("meshInfo", qt=True)
+
+    list = cmds.ls(sl=True)
+    if not list or len(list) != 2:
+        return ["Error"], "Please select 2 meshes!"
+
+    shapes = []
+    for obj in list:
+        selectedShapes = cmds.listRelatives(obj, shapes=True, fullPath=True)
+        if selectedShapes and cmds.objectType(selectedShapes[0])=="mesh":
+            shapes.append(selectedShapes[0])
+    if not len(shapes)>1:
+        cmds.select(cl=True)
+        return
+
+    sel_str = []
+    inc = 1      
+    for i in range(0, len(shapes)-1):
+        for j in range(i+1, len(shapes)):
+            vcg = VCGIntersectionFinder(shapes[i], shapes[j])
+            res = vcg.get_intersecting_selection_strings()
+            if res:
+                for r in res:
+                    sel_str.append(r) 
+        inc += 1
+    
+    cmds.select(sel_str)
+    if sel_str:
+        return ["Error"], "Intersections found!"
+    else:
+        return [], ""
+
+class VCGIntersectionFinder(object):
+    def __init__(self, mesh_a, mesh_b):
+        self._mesh_a = mesh_a
+        self._mesh_b = mesh_b
+        if not self._mesh_a:
+            err = "Invalid node passed in as mesh_a."
+            err += "\nMust be of type kMesh!"
+            raise TypeError(err)
+        if not self._mesh_b:
+            err = "Invalid node passed in as mesh_b."
+            err += "\nMust be of type kMesh!"
+            raise TypeError(err)
+
+    def get_intersecting_face_ids(self):
+        ids = cmds.meshInfo(self._mesh_a, i=self._mesh_b)
+        if not ids:
+            return None
+        cnt_a = ids[0]
+        cnt_b = ids[1]
+        face_ids_a = list()
+        face_ids_b = list()
+        it = 1
+        for i in range(cnt_a):
+            it += 1
+            face_ids_a.append(ids[it])
+        for i in range(cnt_b):
+            it += 1
+            face_ids_b.append(ids[it])
+        return (face_ids_a, face_ids_b)
+
+    def get_intersecting_selection_strings(self):
+        ids = self.get_intersecting_face_ids()
+        if not ids:
+            return []
+
+        sel = list()
+        for _id in ids[0]:
+            sel.append("%s.f[%s]" % (
+                self._mesh_a,
+                _id))
+        for _id in ids[1]:
+            sel.append("%s.f[%s]" % (
+                self._mesh_b,
+                _id))
+        return sel
+
+    def select_intersecting_faces(self):
+        sel_str = self.get_intersecting_selection_strings()
+        cmds.select(sel_str)           
+
+
+def findSelfIntersections(list, SLMesh):
+    cmds.loadPlugin("meshInfo", qt=True)
+
+    list = cmds.ls(sl=True)
+    if not list or len(list) != 1:
+        return ["Error"], "Please select 1 mesh!"
+
+    shapes = []
+    for obj in list:
+        selectedShapes = cmds.listRelatives(obj, shapes=True, fullPath=True)
+        if selectedShapes and cmds.objectType(selectedShapes[0])=="mesh":
+            shapes.append(selectedShapes[0])
+    if not shapes:
+        cmds.select(cl=True)
+        return
+
+    sel_str = []      
+    for shape in shapes:
+        i = VCGSelfIntersectionFinder(shape)
+        sel_str.extend(i.get_intersecting_selection_strings())
+    cmds.select(sel_str)
+
+    if sel_str:
+        return ["Error"], "Self-Intersections found!"
+    else:
+        return [], ""
+
+class VCGSelfIntersectionFinder(object):
+    def __init__(self, in_mesh):
+        self._in_mesh = in_mesh
+        if not self._in_mesh:
+            err = "Invalid node passed in."
+            err += "\nMust be of type kMesh!"
+            raise TypeError(err)
+
+
+    def get_intersecting_face_ids(self):
+        ids = cmds.meshInfo(self._in_mesh, si=True)
+        return ids
+
+    def get_intersecting_selection_strings(self):
+        ids = self.get_intersecting_face_ids()
+        if not ids:
+            return []
+        sel = []
+        for _id in ids:
+            sel.append("%s.f[%s]" % (
+                self._in_mesh,
+                _id))
+
+        return sel
+
+    def select_intersecting_faces(self):
+        sel_str = self.get_intersecting_selection_strings()
+        cmds.select(sel_str)
 
 
 # UV checks
@@ -631,13 +849,21 @@ def namespaces(list, SLMesh):
     for obj in list:
         if ':' in obj:
             namespaces.append(obj)
+    defaults = ['UI', 'shared']
+    currentNamespaces = cmds.namespaceInfo(lon=True)
+    diff = [item for item in currentNamespaces if item not in defaults]
+    if diff:
+        for ns in diff:
+            namespaces.append(ns)
     return namespaces, "Namespace Error"
 
 def namespaces_fix(list, SLMesh):
-    for obj in list:
-        cmds.namespace(set=":")
-        name = obj.split(":")[-1]
-        cmds.rename(obj, name)
+    defaults = ['UI', 'shared']
+    namespaces = (ns for ns in pm.namespaceInfo(lon=True) if ns not in defaults)
+    namespaces = (pm.Namespace(ns) for ns in namespaces)
+    for ns in namespaces:
+        pm.namespace(moveNamespace=[ns, ":"])
+        ns.remove()
     return "fixed"
 
 #Texture Checks
@@ -752,208 +978,3 @@ def standardSurface_fix(list, SLMesh):
             sg = "standardSurfaceSG"
         cmds.sets(obj, e=True, forceElement=sg)
     return "fixed"
-
-
-# Scene checks
-def cleanUp(list, SLMesh):
-    mel.eval('MLdeleteUnused;')
-    pfxToons = cmds.ls(type="pfxToon")
-    if pfxToons:
-        for pfxToon in pfxToons:
-            cmds.delete(cmds.listRelatives(pfxToon, p=True))
-    return [], ""
-
-def referenceCheck(list, SLMesh):
-    references = []
-    references = cmds.file(q=True, r=True)
-    if references:
-        return references, "References Found!"
-    else:
-        return references, ""
-
-def hierarchy(list, SLMesh):
-    hierarchy = []
-    groups = ["meta", "stock", "root"]
-    for group in groups:
-        if not cmds.objExists(group):
-            hierarchy.append(group)
-    return hierarchy, "group is missing"
-
-def unitCheck(list, SLMesh):
-    unit = cmds.currentUnit(q=True, l=True)
-    if not unit in ["mm", "cm"]:
-        return [unit], "is not mm or cm"
-    else:
-        return [], ""
-
-def animationKeys(list, SLMesh):
-    animationKeys = []
-    for obj in list:
-        animCurves = cmds.listConnections(obj, type="animCurve")
-        if animCurves:
-            animationKeys.append(obj)
-    return animationKeys, "Animation Keys found"
-
-def animationKeys_fix(list, SLMesh):
-    for obj in list:
-        animCurves = cmds.listConnections(obj, type="animCurve")
-        cmds.delete(animCurves)
-    return "fixed"
-
-def emptyGroups(list, SLMesh):
-    emptyGroups = []
-    for obj in list:
-        if cmds.objectType(obj) == "transform":
-            children = cmds.listRelatives(obj, ad=True)
-            if children is None:
-                emptyGroups.append(obj)
-    return emptyGroups, "is an empty group"
-
-def layers(list, SLMesh):
-    layers = cmds.ls(type="displayLayer")
-    layers.remove("defaultLayer")
-    if layers:
-        return layers, "is a display layer"
-    else:
-        return [], ""
-
-def layers_fix(list, SLMesh):
-    layers = cmds.ls(type="displayLayer")
-    layers.remove("defaultLayer")
-    for layer in layers:
-        try:
-            cmds.delete(layer)
-        except:
-            return "Error"
-    return "fixed"
-
-# Intersections Check
-def findIntersections(list, SLMesh):
-    cmds.loadPlugin("meshInfo", qt=True)
-    shapes = []
-    for obj in list:
-        shape = cmds.listRelatives(obj, shapes=True, fullPath=True)[0]
-        if shape:
-            shapes.append(shape)
-    if not len(shapes)>1:
-        cmds.select(cl=True)
-        return
-
-    sel_str = []
-    inc = 1      
-    for i in range(0, len(shapes)-1):
-        for j in range(i+1, len(shapes)):
-            vcg = VCGIntersectionFinder(shapes[i], shapes[j])
-            res = vcg.get_intersecting_selection_strings()
-            if res:
-                for r in res:
-                    sel_str.append(r) 
-        inc += 1
-    
-    cmds.select(sel_str)
-    if sel_str:
-        return ["Error"], "Intersections found!"
-    else:
-        return [], ""
-
-class VCGIntersectionFinder(object):
-    def __init__(self, mesh_a, mesh_b):
-        self._mesh_a = mesh_a
-        self._mesh_b = mesh_b
-        if not self._mesh_a:
-            err = "Invalid node passed in as mesh_a."
-            err += "\nMust be of type kMesh!"
-            raise TypeError(err)
-        if not self._mesh_b:
-            err = "Invalid node passed in as mesh_b."
-            err += "\nMust be of type kMesh!"
-            raise TypeError(err)
-
-    def get_intersecting_face_ids(self):
-        ids = cmds.meshInfo(self._mesh_a, i=self._mesh_b)
-        if not ids:
-            return None
-        cnt_a = ids[0]
-        cnt_b = ids[1]
-        face_ids_a = list()
-        face_ids_b = list()
-        it = 1
-        for i in range(cnt_a):
-            it += 1
-            face_ids_a.append(ids[it])
-        for i in range(cnt_b):
-            it += 1
-            face_ids_b.append(ids[it])
-        return (face_ids_a, face_ids_b)
-
-    def get_intersecting_selection_strings(self):
-        ids = self.get_intersecting_face_ids()
-        if not ids:
-            return []
-
-        sel = list()
-        for _id in ids[0]:
-            sel.append("%s.f[%s]" % (
-                self._mesh_a,
-                _id))
-        for _id in ids[1]:
-            sel.append("%s.f[%s]" % (
-                self._mesh_b,
-                _id))
-        return sel
-
-    def select_intersecting_faces(self):
-        sel_str = self.get_intersecting_selection_strings()
-        cmds.select(sel_str)           
-
-
-def findSelfIntersections(list, SLMesh):
-    cmds.loadPlugin("meshInfo", qt=True)
-    shapes = []
-    for obj in list:
-        shape = cmds.listRelatives(obj, shapes=True, fullPath=True)[0]
-        if shape:
-            shapes.append(shape)
-    if not shapes:
-        cmds.select(cl=True)
-        return
-
-    sel_str = []      
-    for shape in shapes:
-        i = VCGSelfIntersectionFinder(shape)
-        sel_str.extend(i.get_intersecting_selection_strings())
-    cmds.select(sel_str)
-
-    if sel_str:
-        return ["Error"], "Self-Intersections found!"
-    else:
-        return [], ""
-
-class VCGSelfIntersectionFinder(object):
-    def __init__(self, in_mesh):
-        self._in_mesh = in_mesh
-        if not self._in_mesh:
-            err = "Invalid node passed in."
-            err += "\nMust be of type kMesh!"
-            raise TypeError(err)
-
-
-    def get_intersecting_face_ids(self):
-        ids = cmds.meshInfo(self._in_mesh, si=True)
-        return ids
-
-    def get_intersecting_selection_strings(self):
-        ids = self.get_intersecting_face_ids()
-        if not ids:
-            return []
-        sel = []
-        for _id in ids:
-            sel.append("%s.f[%s]" % (
-                self._in_mesh,
-                _id))
-
-        return sel
-
-    def select_intersecting_faces(self):
-        sel_str = self.get_intersecting_selection_strings()
-        cmds.select(sel_str)
