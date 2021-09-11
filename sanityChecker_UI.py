@@ -324,6 +324,8 @@ class SanityCheckerUI(QtWidgets.QMainWindow):
     # Definitions to manipulate the UI
     def setTopNode(self):
         sel = cmds.ls(selection=True)
+        if not sel:
+            return 
         self.selectedTopNode_UI.setText(sel[0])
 
     # Checks the state of a given checkbox
