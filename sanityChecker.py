@@ -550,7 +550,10 @@ def history_fix(list, SLMesh):
 
 # Intersections Check
 def findIntersections(list, SLMesh):
-    cmds.loadPlugin("meshInfo", qt=True)
+    try:
+        cmds.loadPlugin("meshInfo", qt=True)
+    except:
+        return ["Error"], "meshInfo plugin could not be loaded"!"
 
     list = cmds.ls(sl=True)
     if not list or len(list) != 2:
@@ -634,7 +637,10 @@ class VCGIntersectionFinder(object):
 
 
 def findSelfIntersections(list, SLMesh):
-    cmds.loadPlugin("meshInfo", qt=True)
+    try:
+        cmds.loadPlugin("meshInfo", qt=True)
+    except:
+        return ["Error"], "meshInfo plugin could not be loaded"!"
 
     list = cmds.ls(sl=True)
     if not list or len(list) != 1:
