@@ -553,7 +553,7 @@ def findIntersections(list, SLMesh):
     try:
         cmds.loadPlugin("meshInfo", qt=True)
     except:
-        return ["Error"], "meshInfo plugin could not be loaded"!"
+        return ["Error"], "meshInfo plugin could not be loaded!"
 
     list = cmds.ls(sl=True)
     if not list or len(list) != 2:
@@ -640,7 +640,7 @@ def findSelfIntersections(list, SLMesh):
     try:
         cmds.loadPlugin("meshInfo", qt=True)
     except:
-        return ["Error"], "meshInfo plugin could not be loaded"!"
+        return ["Error"], "meshInfo plugin could not be loaded!"
 
     list = cmds.ls(sl=True)
     if not list or len(list) != 1:
